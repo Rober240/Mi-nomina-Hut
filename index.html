@@ -403,7 +403,7 @@ const C = {
   gris: "#6B7280",
   rojo: "#9B2C2C"
 };
-const VERSION = "v6 · noviembre 2026";
+const VERSION = "v7 · noviembre 2026";
 const FS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 const FM = "'IBM Plex Mono', ui-monospace, monospace";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -524,6 +524,97 @@ const FESTIVOS_2026 = [{
   nombre: "Navidad"
 }];
 
+/* ---------- Festivos 2027 (Toledo capital) ----------------------------
+   Fuente: calendario laboral CCOO Industria Toledo 2027. Nacionales y
+   autonómicos resaltados en el calendario, las dos fiestas locales de Toledo
+   del cuadro de fiestas locales (19 y 29 de marzo) y los días 24 y 31 de
+   diciembre, que el art. 24 del convenio considera festivos sin merma de la
+   jornada anual. El 1 de mayo y el 25 de diciembre caen en sábado. */
+const FESTIVOS_2027 = [{
+  mes: 1,
+  dia: 1,
+  nombre: "Año Nuevo"
+}, {
+  mes: 1,
+  dia: 6,
+  nombre: "Epifanía del Señor"
+}, {
+  mes: 3,
+  dia: 19,
+  nombre: "San José (local de Toledo)"
+}, {
+  mes: 3,
+  dia: 25,
+  nombre: "Jueves Santo"
+}, {
+  mes: 3,
+  dia: 26,
+  nombre: "Viernes Santo"
+}, {
+  mes: 3,
+  dia: 29,
+  nombre: "Lunes de Pascua (local de Toledo)"
+}, {
+  mes: 5,
+  dia: 1,
+  nombre: "Fiesta del Trabajo"
+}, {
+  mes: 5,
+  dia: 27,
+  nombre: "Corpus Christi"
+}, {
+  mes: 5,
+  dia: 31,
+  nombre: "Día de Castilla-La Mancha"
+}, {
+  mes: 10,
+  dia: 12,
+  nombre: "Fiesta Nacional"
+}, {
+  mes: 11,
+  dia: 1,
+  nombre: "Todos los Santos"
+}, {
+  mes: 12,
+  dia: 6,
+  nombre: "Constitución"
+}, {
+  mes: 12,
+  dia: 8,
+  nombre: "Inmaculada"
+}, {
+  mes: 12,
+  dia: 24,
+  nombre: "Nochebuena (convenio, art. 24)"
+}, {
+  mes: 12,
+  dia: 25,
+  nombre: "Navidad"
+}, {
+  mes: 12,
+  dia: 31,
+  nombre: "Nochevieja (convenio, art. 24)"
+}];
+function festivosBase(year) {
+  if (year === 2026) return FESTIVOS_2026.slice();
+  if (year === 2027) return FESTIVOS_2027.slice();
+  return [];
+}
+/* Si un año guardado en el móvil tiene la lista de festivos vacía y ahora
+   hay una de serie, se rellena. Una lista con datos, editada a mano, no se toca. */
+function rellenaFestivos(pj) {
+  if (!pj || typeof pj !== "object") return pj;
+  Object.keys(pj).forEach(function (y) {
+    const base = festivosBase(Number(y));
+    if (pj[y] && base.length && (!pj[y].festivos || pj[y].festivos.length === 0)) {
+      pj[y] = Object.assign({}, pj[y], {
+        festivos: base
+      });
+    }
+  });
+  return pj;
+}
+
 /* ---------- Tablas por año ----------------------------------------------
    Salario base: art. 37 del convenio, 3% cada año. 2025 y 2026 verificados
    contra tabla publicada y nóminas reales; 2027 y 2028 son el 3% compuesto,
@@ -603,7 +694,7 @@ function parametrosBase(year) {
     /* Pago único en julio, septiembre y diciembre: así figura en el recibo
        "EXTRA VERANO" de 30/09/2025, que viene como recibo aparte. */
     pagasProrrateadas: false,
-    festivos: year === 2026 ? FESTIVOS_2026.slice() : [],
+    festivos: festivosBase(year),
     contingenciasComunesPct: 4.70,
     meiPct: t.meiPct,
     desempleoFogasaFpPct: 1.65,
@@ -644,6 +735,10 @@ function fmtEUR(n) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }) + " €";
+}
+function fmtSigned(v, dec) {
+  const r = Math.round(v * Math.pow(10, dec)) / Math.pow(10, dec);
+  return (r > 0 ? "+" : r < 0 ? "−" : "") + fmtNum(Math.abs(r), dec);
 }
 function fmtEUR0(n) {
   return Math.round(n).toLocaleString("es-ES") + " €";
@@ -1012,6 +1107,10 @@ function calcularAnual(year, cuadrante, turnos, p, horasExtra, pagasEnMes, liqui
     sumLiquido = 0,
     sumHE = 0;
   let diasNatAcum = 0;
+  /* Exceso mes a mes: solo cuentan los meses con calendario cargado, para que
+     un mes aún en blanco no parezca un déficit. */
+  let excAcumCal = 0,
+    dExcAcum = 0;
   for (let m = 1; m <= 12; m++) {
     const he = horasExtra && horasExtra[m] || 0;
     const incluirPaga = !!(pagasEnMes && pagasEnMes[m]);
@@ -1030,7 +1129,18 @@ function calcularAnual(year, cuadrante, turnos, p, horasExtra, pagasEnMes, liqui
     sumLiquido += r.liquido;
     sumHE += r.impHorasExtra;
     const esperadaAcum = p.jornadaAnual * (diasNatAcum / diasAnio);
+    const cmes = cuadrante[m];
+    const conCalendario = !!(cmes && cmes.some(c => c && c !== "D"));
+    const esperadaMes = p.jornadaAnual * (daysInMonth(year, m) / diasAnio);
+    const excesoMes = conCalendario ? r.horasTrabajadas - esperadaMes : 0;
+    if (conCalendario) excAcumCal += excesoMes;
+    dExcAcum += r.diasExceso;
     meses.push(Object.assign({}, r, {
+      conCalendario,
+      esperadaMes,
+      excesoMes,
+      excesoAcumCal: excAcumCal,
+      diasExcesoAcum: dExcAcum,
       mes: m,
       horasAcum: hTrab,
       esperadaAcum: esperadaAcum,
@@ -3961,6 +4071,7 @@ function TabMes({
   setMes,
   res,
   proximo,
+  exc,
   params,
   heHoras,
   heManual,
@@ -4499,7 +4610,53 @@ function TabMes({
   }, "Equivale a ", fmtNum(params.horaExtraValor > 0 ? (heImporte || 0) / params.horaExtraValor : 0, 2), " h a ", fmtEUR(params.horaExtraValor), "/h."), /*#__PURE__*/React.createElement("button", {
     onClick: () => setHeManual(mes, null),
     style: enlaceBtn
-  }, "Volver a calcular por horas"))), /*#__PURE__*/React.createElement(Titulo, {
+  }, "Volver a calcular por horas"))), exc && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Titulo, {
+    texto: "Exceso de jornada · " + MESES[mes - 1].toLowerCase(),
+    color: C.terracota
+  }), /*#__PURE__*/React.createElement(Card, {
+    style: {
+      background: "#fff",
+      borderColor: C.terracota
+    }
+  }, !exc.conCalendario ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: FS,
+      fontSize: 11,
+      color: C.gris,
+      lineHeight: 1.45
+    }
+  }, "Este mes todavía no tiene calendario cargado, así que no entra en el exceso.") : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Row, {
+    label: "Horas trabajadas",
+    value: fmtH(exc.horasTrabajadas)
+  }), /*#__PURE__*/React.createElement(Row, {
+    label: "Corresponden",
+    value: fmtH(exc.esperadaMes),
+    nota: fmtNum(params.jornadaAnual, 0) + " h repartidas por días naturales"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: "1px solid " + C.arena2,
+      margin: "6px 0"
+    }
+  }), /*#__PURE__*/React.createElement(Row, {
+    label: "Exceso del mes",
+    value: fmtSigned(exc.excesoMes, 1) + " h",
+    bold: true,
+    color: exc.excesoMes > 0 ? C.terracota : C.verde
+  }), /*#__PURE__*/React.createElement(Row, {
+    label: "Acumulado del año",
+    value: fmtSigned(exc.excesoAcumCal, 1) + " h",
+    bold: true,
+    color: exc.excesoAcumCal > 0 ? C.terracota : C.verde,
+    nota: "Suma de los meses con calendario hasta este mes"
+  }), /*#__PURE__*/React.createElement(Row, {
+    label: "En jornadas",
+    value: fmtSigned(exc.mediaHorasDia > 0 ? exc.excesoAcumCal / exc.mediaHorasDia : 0, 1),
+    nota: "Media de " + fmtH(exc.mediaHorasDia) + " por día trabajado"
+  }), /*#__PURE__*/React.createElement(Row, {
+    label: "Días de compensación (EX)",
+    value: exc.diasExceso + " este mes · " + exc.diasExcesoAcum + " en el año",
+    nota: "Los EX ya están descontados de las horas trabajadas"
+  })))), /*#__PURE__*/React.createElement(Titulo, {
     texto: "Contraste con el ingreso"
   }), /*#__PURE__*/React.createElement(Card, null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4856,6 +5013,96 @@ function TabAnio({
       marginTop: 5
     }
   }, "Desliza la tabla para ver todas las columnas."), /*#__PURE__*/React.createElement(Titulo, {
+    texto: "Exceso de jornada, mes a mes",
+    color: C.terracota
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: FS,
+      fontSize: 10.5,
+      color: C.gris,
+      marginBottom: 8,
+      lineHeight: 1.45
+    }
+  }, "Horas trabajadas frente a las que corresponden (jornada de " + fmtNum(params.jornadaAnual, 0) + " h repartida por días naturales). Solo cuentan los meses con calendario. Verde: por debajo de la jornada. Naranja: exceso que hay que compensar. Los días EX ya están descontados de las horas."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
+      border: "1px solid " + C.arena2,
+      borderRadius: 10
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    style: {
+      borderCollapse: "collapse",
+      width: "100%",
+      fontFamily: FM,
+      fontSize: 11
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: C.grafito
+    }
+  }, ["Mes", "Horas", "Tocan", "Exceso", "Acum.", "Jorn.", "EX"].map((h, i) => /*#__PURE__*/React.createElement("th", {
+    key: i,
+    style: {
+      padding: "8px 7px",
+      color: "#fff",
+      fontFamily: FS,
+      fontSize: 10,
+      fontWeight: 600,
+      textAlign: i === 0 ? "left" : "right",
+      whiteSpace: "nowrap"
+    }
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, anual.meses.map((m, i) => {
+    const col = v => v > 0.05 ? C.terracota : v < -0.05 ? C.verde : C.gris;
+    const jorn = anual.mediaHorasDia > 0 ? m.excesoAcumCal / anual.mediaHorasDia : 0;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: i,
+      style: {
+        background: i % 2 ? "#fff" : C.arena
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "7px",
+        fontFamily: FS,
+        fontSize: 11,
+        fontWeight: 600,
+        color: C.grafito
+      }
+    }, MESES_CORTO[i]), m.conCalendario ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("td", {
+      style: tdNum
+    }, fmtNum(m.horasTrabajadas, 0)), /*#__PURE__*/React.createElement("td", {
+      style: tdNum
+    }, fmtNum(m.esperadaMes, 0)), /*#__PURE__*/React.createElement("td", {
+      style: Object.assign({}, tdNum, {
+        color: col(m.excesoMes)
+      })
+    }, fmtSigned(m.excesoMes, 1)), /*#__PURE__*/React.createElement("td", {
+      style: Object.assign({}, tdNum, {
+        color: col(m.excesoAcumCal),
+        fontWeight: 700
+      })
+    }, fmtSigned(m.excesoAcumCal, 1)), /*#__PURE__*/React.createElement("td", {
+      style: Object.assign({}, tdNum, {
+        color: col(jorn)
+      })
+    }, fmtSigned(jorn, 1)), /*#__PURE__*/React.createElement("td", {
+      style: tdNum
+    }, m.diasExceso + "/" + m.diasExcesoAcum)) : /*#__PURE__*/React.createElement("td", {
+      colSpan: 6,
+      style: Object.assign({}, tdNum, {
+        color: C.gris,
+        fontFamily: FS,
+        fontStyle: "italic"
+      })
+    }, "sin calendario"));
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: FS,
+      fontSize: 10,
+      color: C.gris,
+      padding: "6px 7px"
+    }
+  }, "Jorn. = acumulado en jornadas · EX = días de compensación del mes / del año")), /*#__PURE__*/React.createElement(Titulo, {
     texto: "Pagas extraordinarias",
     color: C.verde
   }), /*#__PURE__*/React.createElement(Card, {
@@ -5101,7 +5348,7 @@ function App() {
       } catch (e) {}
       try {
         const r = await window.storage.get("parametros");
-        if (r && r.value) setParametros(JSON.parse(r.value));
+        if (r && r.value) setParametros(rellenaFestivos(JSON.parse(r.value)));
       } catch (e) {}
       try {
         const r = await window.storage.get("cuadrante");
@@ -5388,7 +5635,7 @@ function App() {
         if (!d.parametros || !d.cuadrante) throw new Error("formato");
         if (!window.confirm("Esto sustituirá todos tus datos actuales por los de la copia. ¿Continuar?")) return;
         if (d.turnos) setTurnos(d.turnos);
-        setParametros(d.parametros);
+        setParametros(rellenaFestivos(d.parametros));
         setCuadrante(d.cuadrante);
         setHorasExtra(d.horasExtra || {});
         setIngresos(d.ingresos || {});
@@ -5694,6 +5941,9 @@ function App() {
     setMes: setMes,
     res: resMes,
     proximo: proximo,
+    exc: Object.assign({}, anual.meses[mes - 1], {
+      mediaHorasDia: anual.mediaHorasDia
+    }),
     params: p,
     heHoras: normalizaHE(he[mes]).horas,
     heManual: normalizaHE(he[mes]).manual !== null && normalizaHE(he[mes]).manual !== undefined,

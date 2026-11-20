@@ -403,7 +403,7 @@ const C = {
   gris: "#6B7280",
   rojo: "#9B2C2C"
 };
-const VERSION = "v8 · noviembre 2026";
+const VERSION = "v9 · noviembre 2026";
 const FS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 const FM = "'IBM Plex Mono', ui-monospace, monospace";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -3679,6 +3679,9 @@ function TabCalendario({
 }) {
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [selDia, setSelDia] = useState(null);
+  /* Pincel: con un turno elegido, cada día que se toca se pinta con él.
+     Sin pincel, tocar un día abre el selector como siempre. */
+  const [pincel, setPincel] = useState(null);
   const [mesOrigen, setMesOrigen] = useState(new Date().getMonth() + 1);
   const [mesDestino, setMesDestino] = useState(new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2);
   const [copiado, setCopiado] = useState(null);
@@ -3730,6 +3733,56 @@ function TabCalendario({
     size: 17
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: FS,
+      fontSize: 10.5,
+      color: C.gris,
+      marginBottom: 5
+    }
+  }, pincel ? "Toca los días que quieras de " + (turnos[pincel] ? turnos[pincel].nombre : pincel) + ". Vuelve a tocar el turno para terminar." : "Elige un turno y toca los días, o toca un día para elegir su turno."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 5
+    }
+  }, ORDEN_TURNOS.map(c => {
+    const tt = turnos[c] || TURNOS_DEFAULT.D;
+    const activo = pincel === c;
+    return /*#__PURE__*/React.createElement("button", {
+      key: c,
+      onClick: () => setPincel(activo ? null : c),
+      style: {
+        minWidth: 40,
+        padding: "7px 9px",
+        borderRadius: 8,
+        border: activo ? "2px solid " + C.grafito : "1px solid " + C.arena2,
+        background: activo ? tt.color : c === "D" ? "#fff" : tt.color + "22",
+        color: activo ? "#fff" : c === "D" ? C.gris : tt.color,
+        fontFamily: FM,
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: activo ? "0 2px 6px #0003" : "none"
+      }
+    }, c);
+  }), pincel && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPincel(null),
+    style: {
+      padding: "7px 10px",
+      borderRadius: 8,
+      border: "1px solid " + C.arena2,
+      background: C.arena,
+      color: C.grafito,
+      fontFamily: FS,
+      fontSize: 11.5,
+      fontWeight: 600,
+      cursor: "pointer"
+    }
+  }, "Terminar"))), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: "grid",
       gridTemplateColumns: "repeat(7,1fr)",
       gap: 4,
@@ -3766,7 +3819,10 @@ function TabCalendario({
     const trabajado = t.horas > 0;
     return /*#__PURE__*/React.createElement("button", {
       key: d,
-      onClick: () => setSelDia(d),
+      onClick: () => {
+        if (!pincel) return setSelDia(d);
+        if (cod !== pincel) onCambiarDia(mes, d, pincel);
+      },
       style: {
         aspectRatio: "1",
         borderRadius: 8,

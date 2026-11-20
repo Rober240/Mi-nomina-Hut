@@ -3,7 +3,7 @@
    Al publicar una versión nueva basta con cambiar CACHE: el navegador
    descarta la anterior y se queda con la nueva. */
 
-const CACHE = "minomina-v8";
+const CACHE = "minomina-v9";
 
 const ARCHIVOS = [
   "./",

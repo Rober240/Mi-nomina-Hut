@@ -403,7 +403,7 @@ const C = {
   gris: "#6B7280",
   rojo: "#9B2C2C"
 };
-const VERSION = "v7 · noviembre 2026";
+const VERSION = "v8 · noviembre 2026";
 const FS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 const FM = "'IBM Plex Mono', ui-monospace, monospace";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -3601,7 +3601,7 @@ function TabTurnos({
         padding: "3px 7px",
         borderRadius: 5
       }
-    }, fmtH(n), " noct.")), t.horas > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    }, fmtH(n), " noct.")), (t.horas > 0 || t.inicio) && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         gap: 8,
@@ -3643,7 +3643,8 @@ function TabTurnos({
     }, "Duración"), /*#__PURE__*/React.createElement("input", {
       type: "number",
       step: "0.5",
-      value: t.horas,
+      value: t.horas || "",
+      placeholder: "0",
       onChange: e => set(cod, "horas", parseFloat(e.target.value) || 0),
       style: {
         width: "100%",

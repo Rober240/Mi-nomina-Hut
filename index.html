@@ -403,7 +403,7 @@ const C = {
   gris: "#6B7280",
   rojo: "#9B2C2C"
 };
-const VERSION = "v9 · noviembre 2026";
+const VERSION = "v10 · noviembre 2026";
 const FS = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif";
 const FM = "'IBM Plex Mono', ui-monospace, monospace";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -520,8 +520,16 @@ const FESTIVOS_2026 = [{
   nombre: "Inmaculada"
 }, {
   mes: 12,
+  dia: 24,
+  nombre: "Nochebuena (convenio, art. 24)"
+}, {
+  mes: 12,
   dia: 25,
   nombre: "Navidad"
+}, {
+  mes: 12,
+  dia: 31,
+  nombre: "Nochevieja (convenio, art. 24)"
 }];
 
 /* ---------- Festivos 2027 (Toledo capital) ----------------------------
@@ -609,6 +617,24 @@ function rellenaFestivos(pj) {
     if (pj[y] && base.length && (!pj[y].festivos || pj[y].festivos.length === 0)) {
       pj[y] = Object.assign({}, pj[y], {
         festivos: base
+      });
+    } else if (pj[y] && base.length) {
+      /* El art. 24 del convenio hace festivos el 24 y el 31 de diciembre.
+         Si una lista ya guardada no los lleva, se añaden. */
+      const fs = pj[y].festivos.slice();
+      let cambio = false;
+      [24, 31].forEach(function (d) {
+        if (!fs.some(f => f.mes === 12 && f.dia === d)) {
+          fs.push({
+            mes: 12,
+            dia: d,
+            nombre: (d === 24 ? "Nochebuena" : "Nochevieja") + " (convenio, art. 24)"
+          });
+          cambio = true;
+        }
+      });
+      if (cambio) pj[y] = Object.assign({}, pj[y], {
+        festivos: fs
       });
     }
   });
